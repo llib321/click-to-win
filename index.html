@@ -1,7 +1,8 @@
+html_code = """
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Klicka på Cirkeln!</title>
   <style>
     body {
@@ -75,165 +76,263 @@
 </head>
 <body>
 
-  <h1>🔴 Klicka på Cirkeln!</h1>
-  <div id="score">Poäng: 0</div>
+<h1>🔴 Klicka på Cirkeln!</h1>
+<div id="score">Poäng: 0</div>
 
-  <div id="gameArea">
-    <div id="circle" onclick="hitCircle()"></div>
-  </div>
+<div id="gameArea">
+  <div id="circle" onclick="hitCircle()"></div>
+</div>
 
-  <div id="shop">
-    <h2>🛒 Uppgraderingar</h2>
-    <button class="upgrade-btn" onclick="buyUpgrade('biggerCircle')" id="btnBigger">Större Cirkel (250 poäng)</button>
-    <button class="upgrade-btn" onclick="buyUpgrade('morePoints')" id="btnMore">+1 Poäng/klick (100 poäng)</button>
-    <button class="upgrade-btn" onclick="buyUpgrade('fastMove')" id="btnFast">Snabbare Rörelse (1 000 poäng)</button>
-    <button class="upgrade-btn" onclick="buyUpgrade('megaClick')" id="btnMega">MegaKlick +10/klick (1 000 000 poäng)</button>
-    <button class="upgrade-btn" onclick="buyUpgrade('superMultiplier')" id="btnSuper">2x Multiplikator (1 000 000 poäng)</button>
-    <div id="prestigeMessage"></div>
-  </div>
+<div id="shop">
+  <h2>🛒 Uppgraderingar</h2>
+  <div id="upgrade-buttons"></div>
+  <div id="prestigeMessage"></div>
+</div>
 
-  <script>
-    let score = 0;
-    let basePoints = 1;
-    let multiplier = 1;
-    let prestige = 1;
-    let circleSize = 60;
-    let moveSpeed = 200;
-    const circle = document.getElementById("circle");
-    const gameArea = document.getElementById("gameArea");
-    const scoreDisplay = document.getElementById("score");
-    const prestigeMsg = document.getElementById("prestigeMessage");
+<script>
+  let score = 0;
+  let basePoints = 1;
+  let multiplier = 1;
+  let prestige = 1;
+  let circleSize = 60;
+  let moveSpeed = 200;
+  let autoClickerInterval = null;
+  let autoClickerSpeed = 1000;
+  let prestigeBonus = 0;
 
-    const trillion = 1_000_000_000_000;
+  const circle = document.getElementById("circle");
+  const gameArea = document.getElementById("gameArea");
+  const scoreDisplay = document.getElementById("score");
+  const prestigeMsg = document.getElementById("prestigeMessage");
 
-    let upgrades = {
-      biggerCircle: false,
-      morePoints: 0,
-      fastMove: false,
-      megaClick: false,
-      superMultiplier: false
-    };
+  const trillion = 1_000_000_000_000;
 
-    function updateScoreDisplay() {
-      scoreDisplay.innerText = `Poäng: ${score.toLocaleString()} (Prestige x${prestige})`;
-      saveGame();
-    }
+  const upgrades = {
+    biggerCircle: { label: "Större Cirkel", price: 250, bought: false },
+    morePoints: { label: "+1 Poäng/klick", price: 100, count: 0 },
+    fastMove: { label: "Snabbare Rörelse", price: 1000, bought: false },
+    miniCircle: { label: "Mini-Cirkel", price: 2000, bought: false },
+    autoClicker: { label: "Autoclicker", price: 5000, bought: false },
+    doubleClick: { label: "Dubbel Klickkraft", price: 15000, bought: false },
+    fasterMove: { label: "Cirkel-Speed Boost", price: 30000, bought: false },
+    prestigeBoost: { label: "Extra Prestige Poäng", price: 75000, count: 0 },
+    fasterAutoClicker: { label: "Snabbare Autoclicker", price: 150000, bought: false },
+    smallerGameArea: { label: "Mindre Spelyta", price: 250000, bought: false },
+    blinkingCircle: { label: "Cirkelblink", price: 400000, bought: false },
+    superClick: { label: "Super Klick +50", price: 500000, bought: false },
+    permMultiplier: { label: "Evig Multiplikator", price: 1500000, count: 0 }
+  };
 
-    function moveCircle() {
-      const maxX = gameArea.clientWidth - circleSize;
-      const maxY = gameArea.clientHeight - circleSize;
-      const x = Math.random() * maxX;
-      const y = Math.random() * maxY;
-      circle.style.left = x + "px";
-      circle.style.top = y + "px";
-    }
+  function updateScoreDisplay() {
+    scoreDisplay.innerText = `Poäng: ${Math.floor(score).toLocaleString()} (Prestige x${prestige})`;
+    saveGame();
+  }
 
-    function hitCircle() {
-      let extra = upgrades.megaClick ? 10 : 0;
-      const points = (basePoints + upgrades.morePoints + extra) * multiplier * prestige;
-      score += points;
-      updateScoreDisplay();
-      checkPrestige();
-      moveCircle();
-    }
+  function moveCircle() {
+    const maxX = gameArea.clientWidth - circleSize;
+    const maxY = gameArea.clientHeight - circleSize;
+    const x = Math.random() * maxX;
+    const y = Math.random() * maxY;
+    circle.style.left = x + "px";
+    circle.style.top = y + "px";
+  }
 
-    function buyUpgrade(type) {
-      if (type === "biggerCircle" && !upgrades.biggerCircle && score >= 250) {
-        upgrades.biggerCircle = true;
-        score -= 250;
-        circleSize = 90;
-        circle.style.width = circleSize + "px";
-        circle.style.height = circleSize + "px";
-        document.getElementById("btnBigger").disabled = true;
-      } else if (type === "morePoints" && score >= 100) {
-        upgrades.morePoints += 1;
-        score -= 100;
-      } else if (type === "fastMove" && !upgrades.fastMove && score >= 1000) {
-        upgrades.fastMove = true;
-        score -= 1000;
-        moveSpeed = 100;
-        circle.style.transition = `all ${moveSpeed}ms ease`;
-        document.getElementById("btnFast").disabled = true;
-      } else if (type === "megaClick" && !upgrades.megaClick && score >= 1_000_000) {
-        upgrades.megaClick = true;
-        score -= 1_000_000;
-        document.getElementById("btnMega").disabled = true;
-      } else if (type === "superMultiplier" && !upgrades.superMultiplier && score >= 1_000_000) {
-        upgrades.superMultiplier = true;
-        score -= 1_000_000;
-        multiplier *= 2;
-        document.getElementById("btnSuper").disabled = true;
-      }
-      updateScoreDisplay();
-    }
-
-    function checkPrestige() {
-      if (score >= trillion) {
-        prestige++;
-        score = 0;
-        basePoints = 1;
-        multiplier = upgrades.superMultiplier ? 2 : 1;
-        upgrades = {
-          biggerCircle: false,
-          morePoints: 0,
-          fastMove: false,
-          megaClick: false,
-          superMultiplier: upgrades.superMultiplier // behåll multiplikator
-        };
-        circleSize = 60;
-        moveSpeed = 200;
-        circle.style.width = circleSize + "px";
-        circle.style.height = circleSize + "px";
-        circle.style.transition = `all ${moveSpeed}ms ease`;
-
-        document.getElementById("btnBigger").disabled = false;
-        document.getElementById("btnFast").disabled = false;
-        document.getElementById("btnMega").disabled = upgrades.megaClick;
-        document.getElementById("btnSuper").disabled = upgrades.superMultiplier;
-
-        prestigeMsg.innerText = `🔁 Prestige aktiverad! Du är nu Prestige x${prestige}`;
-        updateScoreDisplay();
-      }
-    }
-
-    function saveGame() {
-      const data = {
-        score,
-        prestige,
-        upgrades,
-        circleSize,
-        moveSpeed,
-        multiplier
-      };
-      localStorage.setItem("circleClickerSave", JSON.stringify(data));
-    }
-
-    function loadGame() {
-      const save = localStorage.getItem("circleClickerSave");
-      if (save) {
-        const data = JSON.parse(save);
-        score = data.score;
-        prestige = data.prestige;
-        upgrades = data.upgrades;
-        circleSize = data.circleSize;
-        moveSpeed = data.moveSpeed;
-        multiplier = data.multiplier || 1;
-        circle.style.width = circleSize + "px";
-        circle.style.height = circleSize + "px";
-        circle.style.transition = `all ${moveSpeed}ms ease`;
-
-        if (upgrades.biggerCircle) document.getElementById("btnBigger").disabled = true;
-        if (upgrades.fastMove) document.getElementById("btnFast").disabled = true;
-        if (upgrades.megaClick) document.getElementById("btnMega").disabled = true;
-        if (upgrades.superMultiplier) document.getElementById("btnSuper").disabled = true;
-      }
-    }
-
-    // Init
-    loadGame();
+  function hitCircle() {
+    let extraPoints = 0;
+    if (upgrades.superClick.bought) extraPoints += 50;
+    const points = (basePoints + (upgrades.morePoints.count || 0) + extraPoints) * multiplier * prestige * (1 + 0.1 * (upgrades.prestigeBoost.count || 0));
+    score += points;
     updateScoreDisplay();
+    checkPrestige();
     moveCircle();
-  </script>
+  }
+
+  function createUpgradeButtons() {
+    const container = document.getElementById("upgrade-buttons");
+    for (const key in upgrades) {
+      const btn = document.createElement("button");
+      btn.id = `btn_${key}`;
+      btn.className = "upgrade-btn";
+      btn.onclick = () => buyUpgrade(key);
+      btn.innerText = `${upgrades[key].label} (${upgrades[key].price.toLocaleString()} poäng)`;
+      container.appendChild(btn);
+    }
+  }
+
+  function buyUpgrade(type) {
+    const upgrade = upgrades[type];
+    if (!upgrade) return;
+    if (score < upgrade.price) return;
+
+    score -= upgrade.price;
+
+    switch (type) {
+      case "biggerCircle":
+        if (!upgrade.bought) {
+          circleSize = 90;
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "morePoints":
+        upgrade.count++;
+        break;
+      case "fastMove":
+      case "fasterMove":
+        if (!upgrade.bought) {
+          moveSpeed = 100;
+          circle.style.transition = `all ${moveSpeed}ms ease`;
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "miniCircle":
+        if (!upgrade.bought) {
+          circleSize = 40;
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "autoClicker":
+        if (!upgrade.bought) {
+          startAutoClicker();
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "fasterAutoClicker":
+        if (upgrades.autoClicker.bought && !upgrade.bought) {
+          clearInterval(autoClickerInterval);
+          autoClickerSpeed = 500;
+          startAutoClicker();
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "doubleClick":
+        if (!upgrade.bought) {
+          multiplier *= 2;
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "prestigeBoost":
+        upgrade.count++;
+        break;
+      case "smallerGameArea":
+        if (!upgrade.bought) {
+          gameArea.style.height = "300px";
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "blinkingCircle":
+        if (!upgrade.bought) {
+          circle.style.animation = "blink 0.5s infinite alternate";
+          addBlinkingStyle();
+          upgrade.bought = true;
+          disableButton(type);
+        }
+        break;
+      case "superClick":
+        upgrade.bought = true;
+        disableButton(type);
+        break;
+      case "permMultiplier":
+        upgrade.count++;
+        multiplier += 1;
+        break;
+    }
+
+    updateScoreDisplay();
+  }
+
+  function startAutoClicker() {
+    autoClickerInterval = setInterval(() => {
+      score += 1 * multiplier * prestige;
+      updateScoreDisplay();
+    }, autoClickerSpeed);
+  }
+
+  function disableButton(key) {
+    const btn = document.getElementById("btn_" + key);
+    if (btn) btn.disabled = true;
+  }
+
+  function checkPrestige() {
+    if (score >= trillion) {
+      prestige++;
+      score = 0;
+      multiplier = 1 + (upgrades.permMultiplier.count || 0);
+      for (let key in upgrades) {
+        if (typeof upgrades[key].bought === "boolean") upgrades[key].bought = false;
+        if (typeof upgrades[key].count === "number") upgrades[key].count = 0;
+      }
+      circleSize = 60;
+      moveSpeed = 200;
+      autoClickerSpeed = 1000;
+      clearInterval(autoClickerInterval);
+      autoClickerInterval = null;
+      circle.style.width = circleSize + "px";
+      circle.style.height = circleSize + "px";
+      gameArea.style.height = "500px";
+      circle.style.transition = `all ${moveSpeed}ms ease`;
+      circle.style.animation = "";
+      document.getElementById("upgrade-buttons").innerHTML = "";
+      createUpgradeButtons();
+      prestigeMsg.innerText = `🔁 Prestige aktiverad! Du är nu Prestige x${prestige}`;
+      updateScoreDisplay();
+    }
+  }
+
+  function saveGame() {
+    const data = {
+      score, prestige, upgrades, circleSize, moveSpeed, multiplier, autoClickerSpeed
+    };
+    localStorage.setItem("circleClickerSave", JSON.stringify(data));
+  }
+
+  function loadGame() {
+    const save = localStorage.getItem("circleClickerSave");
+    if (save) {
+      const data = JSON.parse(save);
+      score = data.score || 0;
+      prestige = data.prestige || 1;
+      multiplier = data.multiplier || 1;
+      circleSize = data.circleSize || 60;
+      moveSpeed = data.moveSpeed || 200;
+      autoClickerSpeed = data.autoClickerSpeed || 1000;
+      Object.assign(upgrades, data.upgrades || {});
+      if (upgrades.autoClicker.bought) startAutoClicker();
+      if (upgrades.blinkingCircle.bought) {
+        addBlinkingStyle();
+        circle.style.animation = "blink 0.5s infinite alternate";
+      }
+      if (upgrades.smallerGameArea.bought) gameArea.style.height = "300px";
+      circle.style.transition = `all ${moveSpeed}ms ease`;
+      circle.style.width = circleSize + "px";
+      circle.style.height = circleSize + "px";
+    }
+  }
+
+  function addBlinkingStyle() {
+    const style = document.createElement("style");
+    style.innerHTML = "@keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }";
+    document.head.appendChild(style);
+  }
+
+  // Init
+  loadGame();
+  createUpgradeButtons();
+  updateScoreDisplay();
+  moveCircle();
+</script>
 
 </body>
 </html>
+"""
+
+with open("/mnt/data/klickspel_med_uppgraderingar.html", "w", encoding="utf-8") as f:
+    f.write(html_code)
+
+"/mnt/data/klickspel_med_uppgraderingar.html"
