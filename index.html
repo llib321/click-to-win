@@ -1,4 +1,3 @@
-html_code = """
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -13,27 +12,43 @@ html_code = """
       flex-direction: column;
       align-items: center;
     }
-    h1 {
-      margin-top: 20px;
-      font-size: 2rem;
-      color: #333;
+
+    #score, #ppc, #pps {
+      font-size: 1.2rem;
+      margin: 4px;
     }
-    #score {
-      font-size: 1.5rem;
-      margin-bottom: 10px;
+
+    #gameContainer, #shop {
+      width: 85%;
+      max-width: 900px;
+      background: #ffffffee;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 10px;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
     }
+
+    #gameAreaWrapper {
+      width: 100%;
+      height: 500px;
+      border-radius: 12px;
+      background-color: #f0f4f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     #gameArea {
       position: relative;
-      width: 80%;
-      max-width: 800px;
-      height: 500px;
+      width: 95%;
+      height: 90%;
       background-color: #ffffff;
       border: 2px solid #aaa;
       border-radius: 16px;
       overflow: hidden;
-      margin-bottom: 20px;
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+      box-shadow: inset 0 4px 8px rgba(0,0,0,0.1);
     }
+
     #circle {
       position: absolute;
       width: 60px;
@@ -43,215 +58,158 @@ html_code = """
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    #shop {
-      width: 80%;
-      max-width: 800px;
-      padding: 20px;
-      background: #ffffffcc;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      text-align: center;
-    }
+
     .upgrade-btn {
-      padding: 10px 15px;
-      margin: 5px;
+      padding: 14px 28px;
+      margin: 10px;
       border: none;
-      border-radius: 8px;
-      background-color: #457b9d;
+      border-radius: 12px;
+      background-color: #1d3557;
       color: white;
-      font-size: 1rem;
+      font-size: 1.4rem;
       cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       transition: background-color 0.2s;
     }
+
     .upgrade-btn:disabled {
       background-color: #ccc;
       cursor: not-allowed;
     }
-    #prestigeMessage {
-      margin-top: 10px;
-      color: #2a9d8f;
-      font-weight: bold;
+
+    #shop {
+      display: none;
+      text-align: center;
     }
   </style>
 </head>
 <body>
 
-<h1>🔴 Klicka på Cirkeln!</h1>
 <div id="score">Poäng: 0</div>
+<div id="ppc">Poäng/klick: 0</div>
+<div id="pps">Poäng/sekund: 0</div>
 
-<div id="gameArea">
-  <div id="circle" onclick="hitCircle()"></div>
+<div id="gameContainer">
+  <div id="gameAreaWrapper">
+    <div id="gameArea">
+      <div id="circle" onclick="hitCircle()"></div>
+    </div>
+  </div>
+  <button 
+    class="upgrade-btn" 
+    onclick="toggleShop(true)">
+    🛍️ Visa Uppgraderingar
+  </button>
 </div>
 
 <div id="shop">
   <h2>🛒 Uppgraderingar</h2>
   <div id="upgrade-buttons"></div>
-  <div id="prestigeMessage"></div>
+  <button class="upgrade-btn" onclick="toggleShop(false)">⬅ Tillbaka</button>
 </div>
 
 <script>
-  let score = 0;
-  let basePoints = 1;
-  let multiplier = 1;
-  let prestige = 1;
-  let circleSize = 60;
-  let moveSpeed = 200;
-  let autoClickerInterval = null;
-  let autoClickerSpeed = 1000;
-  let prestigeBonus = 0;
-
+  let score = 0, basePoints = 1, multiplier = 1, prestige = 1;
+  let autoClickerInterval = null, autoClickerSpeed = 1000, ppsCounter = 0;
+  const scoreDisplay = document.getElementById("score");
+  const ppcDisplay = document.getElementById("ppc");
+  const ppsDisplay = document.getElementById("pps");
   const circle = document.getElementById("circle");
   const gameArea = document.getElementById("gameArea");
-  const scoreDisplay = document.getElementById("score");
-  const prestigeMsg = document.getElementById("prestigeMessage");
 
-  const trillion = 1_000_000_000_000;
+  function toggleShop(show) {
+    document.getElementById("shop").style.display = show ? "block" : "none";
+    document.getElementById("gameContainer").style.display = show ? "none" : "block";
+  }
 
   const upgrades = {
-    biggerCircle: { label: "Större Cirkel", price: 250, bought: false },
     morePoints: { label: "+1 Poäng/klick", price: 100, count: 0 },
-    fastMove: { label: "Snabbare Rörelse", price: 1000, bought: false },
-    miniCircle: { label: "Mini-Cirkel", price: 2000, bought: false },
-    autoClicker: { label: "Autoclicker", price: 5000, bought: false },
-    doubleClick: { label: "Dubbel Klickkraft", price: 15000, bought: false },
-    fasterMove: { label: "Cirkel-Speed Boost", price: 30000, bought: false },
-    prestigeBoost: { label: "Extra Prestige Poäng", price: 75000, count: 0 },
-    fasterAutoClicker: { label: "Snabbare Autoclicker", price: 150000, bought: false },
-    smallerGameArea: { label: "Mindre Spelyta", price: 250000, bought: false },
-    blinkingCircle: { label: "Cirkelblink", price: 400000, bought: false },
-    superClick: { label: "Super Klick +50", price: 500000, bought: false },
-    permMultiplier: { label: "Evig Multiplikator", price: 1500000, count: 0 }
+    autoClicker: { label: "Autoclicker", price: 10000, bought: false },
+    superClick: { label: "Super Klick +50", price: 200000, bought: false },
+    tinyArea: { label: "Mindre Spelyta", price: 75000, bought: false },
+    multiClick: { label: "+2x Multiklick", price: 90000, bought: false },
+    goldenClick: { label: "Guld-klick (100 extra)", price: 120000, bought: false },
+    doublePoints: { label: "Dubbel baspoäng", price: 150000, bought: false },
+    fasterAuto: { label: "Snabbare Auto", price: 85000, bought: false },
+    prestigeBoost: { label: "+1 Prestige", price: 200000, bought: false },
+    autoBoost: { label: "+5 Poäng/sek", price: 95000, bought: false },
+    clickStorm: { label: "Klickstorm +200", price: 300000, bought: false },
   };
 
-  function updateScoreDisplay() {
-    scoreDisplay.innerText = `Poäng: ${Math.floor(score).toLocaleString()} (Prestige x${prestige})`;
-    saveGame();
-  }
-
-  function moveCircle() {
-    const maxX = gameArea.clientWidth - circleSize;
-    const maxY = gameArea.clientHeight - circleSize;
-    const x = Math.random() * maxX;
-    const y = Math.random() * maxY;
-    circle.style.left = x + "px";
-    circle.style.top = y + "px";
-  }
-
   function hitCircle() {
-    let extraPoints = 0;
-    if (upgrades.superClick.bought) extraPoints += 50;
-    const points = (basePoints + (upgrades.morePoints.count || 0) + extraPoints) * multiplier * prestige * (1 + 0.1 * (upgrades.prestigeBoost.count || 0));
+    const bonus = (upgrades.superClick.bought ? 50 : 0) +
+                  (upgrades.goldenClick.bought ? 100 : 0) +
+                  (upgrades.clickStorm.bought ? 200 : 0);
+    const base = basePoints + (upgrades.morePoints.count || 0);
+    const points = (base + bonus) * multiplier * prestige;
     score += points;
-    updateScoreDisplay();
-    checkPrestige();
+    ppsCounter += points;
+    updateUI();
     moveCircle();
   }
 
-  function createUpgradeButtons() {
-    const container = document.getElementById("upgrade-buttons");
-    for (const key in upgrades) {
-      const btn = document.createElement("button");
-      btn.id = `btn_${key}`;
-      btn.className = "upgrade-btn";
-      btn.onclick = () => buyUpgrade(key);
-      btn.innerText = `${upgrades[key].label} (${upgrades[key].price.toLocaleString()} poäng)`;
-      container.appendChild(btn);
-    }
+  function moveCircle() {
+    const maxX = gameArea.clientWidth - circle.offsetWidth;
+    const maxY = gameArea.clientHeight - circle.offsetHeight;
+    circle.style.left = Math.random() * maxX + "px";
+    circle.style.top = Math.random() * maxY + "px";
   }
 
-  function buyUpgrade(type) {
-    const upgrade = upgrades[type];
-    if (!upgrade) return;
-    if (score < upgrade.price) return;
+  function buyUpgrade(key) {
+    const u = upgrades[key];
+    if (!u || score < u.price) return;
+    score -= u.price;
 
-    score -= upgrade.price;
-
-    switch (type) {
-      case "biggerCircle":
-        if (!upgrade.bought) {
-          circleSize = 90;
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "morePoints":
-        upgrade.count++;
-        break;
-      case "fastMove":
-      case "fasterMove":
-        if (!upgrade.bought) {
-          moveSpeed = 100;
-          circle.style.transition = `all ${moveSpeed}ms ease`;
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "miniCircle":
-        if (!upgrade.bought) {
-          circleSize = 40;
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
+    switch (key) {
+      case "morePoints": u.count++; break;
       case "autoClicker":
-        if (!upgrade.bought) {
-          startAutoClicker();
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "fasterAutoClicker":
-        if (upgrades.autoClicker.bought && !upgrade.bought) {
-          clearInterval(autoClickerInterval);
-          autoClickerSpeed = 500;
-          startAutoClicker();
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "doubleClick":
-        if (!upgrade.bought) {
-          multiplier *= 2;
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "prestigeBoost":
-        upgrade.count++;
-        break;
-      case "smallerGameArea":
-        if (!upgrade.bought) {
-          gameArea.style.height = "300px";
-          upgrade.bought = true;
-          disableButton(type);
-        }
-        break;
-      case "blinkingCircle":
-        if (!upgrade.bought) {
-          circle.style.animation = "blink 0.5s infinite alternate";
-          addBlinkingStyle();
-          upgrade.bought = true;
-          disableButton(type);
+        if (!u.bought) {
+          u.bought = true;
+          autoClickerInterval = setInterval(() => {
+            const pts = 1 * multiplier * prestige;
+            score += pts;
+            ppsCounter += pts;
+            updateUI();
+          }, autoClickerSpeed);
         }
         break;
       case "superClick":
-        upgrade.bought = true;
-        disableButton(type);
-        break;
-      case "permMultiplier":
-        upgrade.count++;
-        multiplier += 1;
+      case "tinyArea":
+      case "multiClick":
+      case "goldenClick":
+      case "doublePoints":
+      case "fasterAuto":
+      case "prestigeBoost":
+      case "autoBoost":
+      case "clickStorm":
+        u.bought = true;
+        if (key === "doublePoints") basePoints *= 2;
+        if (key === "multiClick") multiplier *= 2;
+        if (key === "prestigeBoost") prestige++;
+        if (key === "autoBoost") {
+          autoClickerInterval = setInterval(() => {
+            const pts = 5 * multiplier * prestige;
+            score += pts;
+            ppsCounter += pts;
+            updateUI();
+          }, 1000);
+        }
+        if (key === "fasterAuto") {
+          clearInterval(autoClickerInterval);
+          autoClickerInterval = setInterval(() => {
+            const pts = 1 * multiplier * prestige;
+            score += pts;
+            ppsCounter += pts;
+            updateUI();
+          }, 500);
+        }
+        if (key === "tinyArea") {
+          gameArea.style.height = "50%";
+        }
         break;
     }
-
-    updateScoreDisplay();
-  }
-
-  function startAutoClicker() {
-    autoClickerInterval = setInterval(() => {
-      score += 1 * multiplier * prestige;
-      updateScoreDisplay();
-    }, autoClickerSpeed);
+    updateUI();
+    disableButton(key);
   }
 
   function disableButton(key) {
@@ -259,80 +217,52 @@ html_code = """
     if (btn) btn.disabled = true;
   }
 
-  function checkPrestige() {
-    if (score >= trillion) {
-      prestige++;
-      score = 0;
-      multiplier = 1 + (upgrades.permMultiplier.count || 0);
-      for (let key in upgrades) {
-        if (typeof upgrades[key].bought === "boolean") upgrades[key].bought = false;
-        if (typeof upgrades[key].count === "number") upgrades[key].count = 0;
-      }
-      circleSize = 60;
-      moveSpeed = 200;
-      autoClickerSpeed = 1000;
-      clearInterval(autoClickerInterval);
-      autoClickerInterval = null;
-      circle.style.width = circleSize + "px";
-      circle.style.height = circleSize + "px";
-      gameArea.style.height = "500px";
-      circle.style.transition = `all ${moveSpeed}ms ease`;
-      circle.style.animation = "";
-      document.getElementById("upgrade-buttons").innerHTML = "";
-      createUpgradeButtons();
-      prestigeMsg.innerText = `🔁 Prestige aktiverad! Du är nu Prestige x${prestige}`;
-      updateScoreDisplay();
+  function createUpgradeButtons() {
+    const container = document.getElementById("upgrade-buttons");
+    for (const key in upgrades) {
+      const btn = document.createElement("button");
+      btn.id = "btn_" + key;
+      btn.className = "upgrade-btn";
+      btn.onclick = () => buyUpgrade(key);
+      btn.innerText = `${upgrades[key].label} (${upgrades[key].price.toLocaleString()} poäng)`;
+      container.appendChild(btn);
     }
   }
 
-  function saveGame() {
-    const data = {
-      score, prestige, upgrades, circleSize, moveSpeed, multiplier, autoClickerSpeed
-    };
-    localStorage.setItem("circleClickerSave", JSON.stringify(data));
+  function updateUI() {
+    scoreDisplay.innerText = `Poäng: ${Math.floor(score).toLocaleString()}`;
+    const bonus = (upgrades.superClick.bought ? 50 : 0) +
+                  (upgrades.goldenClick.bought ? 100 : 0) +
+                  (upgrades.clickStorm.bought ? 200 : 0);
+    const base = basePoints + (upgrades.morePoints.count || 0);
+    const pointsPerClick = (base + bonus) * multiplier * prestige;
+    ppcDisplay.innerText = `Poäng/klick: ${pointsPerClick}`;
+    ppsDisplay.innerText = `Poäng/sekund: ${ppsLast}`;
+    localStorage.setItem("clickerSave", JSON.stringify({ score, prestige, upgrades }));
   }
 
   function loadGame() {
-    const save = localStorage.getItem("circleClickerSave");
-    if (save) {
-      const data = JSON.parse(save);
-      score = data.score || 0;
-      prestige = data.prestige || 1;
-      multiplier = data.multiplier || 1;
-      circleSize = data.circleSize || 60;
-      moveSpeed = data.moveSpeed || 200;
-      autoClickerSpeed = data.autoClickerSpeed || 1000;
-      Object.assign(upgrades, data.upgrades || {});
-      if (upgrades.autoClicker.bought) startAutoClicker();
-      if (upgrades.blinkingCircle.bought) {
-        addBlinkingStyle();
-        circle.style.animation = "blink 0.5s infinite alternate";
-      }
-      if (upgrades.smallerGameArea.bought) gameArea.style.height = "300px";
-      circle.style.transition = `all ${moveSpeed}ms ease`;
-      circle.style.width = circleSize + "px";
-      circle.style.height = circleSize + "px";
-    }
+    const save = localStorage.getItem("clickerSave");
+    if (!save) return;
+    const data = JSON.parse(save);
+    score = data.score || 0;
+    prestige = data.prestige || 1;
+    Object.assign(upgrades, data.upgrades);
   }
 
-  function addBlinkingStyle() {
-    const style = document.createElement("style");
-    style.innerHTML = "@keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }";
-    document.head.appendChild(style);
-  }
+  let ppsLast = 0;
+  setInterval(() => {
+    ppsLast = ppsCounter;
+    ppsCounter = 0;
+    updateUI();
+  }, 1000);
 
   // Init
   loadGame();
   createUpgradeButtons();
-  updateScoreDisplay();
+  updateUI();
   moveCircle();
 </script>
 
 </body>
 </html>
-"""
-
-with open("/mnt/data/klickspel_med_uppgraderingar.html", "w", encoding="utf-8") as f:
-    f.write(html_code)
-
-"/mnt/data/klickspel_med_uppgraderingar.html"
