@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="sv">
 <head>
@@ -60,15 +61,14 @@
     }
 
     .upgrade-btn {
-      padding: 14px 28px;
-      margin: 10px;
+      padding: 10px 15px;
+      margin: 6px;
       border: none;
-      border-radius: 12px;
-      background-color: #1d3557;
+      border-radius: 8px;
+      background-color: #457b9d;
       color: white;
-      font-size: 1.4rem;
+      font-size: 1rem;
       cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
       transition: background-color 0.2s;
     }
 
@@ -81,6 +81,18 @@
       display: none;
       text-align: center;
     }
+
+    #upgrade-button {
+      font-size: 1.4rem;
+      padding: 14px 28px;
+      background-color: #1d3557;
+      color: white;
+      border-radius: 10px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+    }
+
   </style>
 </head>
 <body>
@@ -95,11 +107,7 @@
       <div id="circle" onclick="hitCircle()"></div>
     </div>
   </div>
-  <button 
-    class="upgrade-btn" 
-    onclick="toggleShop(true)">
-    🛍️ Visa Uppgraderingar
-  </button>
+  <button id="upgrade-button" onclick="toggleShop(true)">🛍️ Uppgraderingar</button>
 </div>
 
 <div id="shop">
@@ -111,6 +119,8 @@
 <script>
   let score = 0, basePoints = 1, multiplier = 1, prestige = 1;
   let autoClickerInterval = null, autoClickerSpeed = 1000, ppsCounter = 0;
+  let originalGameAreaHeight = "90%";
+
   const scoreDisplay = document.getElementById("score");
   const ppcDisplay = document.getElementById("ppc");
   const ppsDisplay = document.getElementById("pps");
@@ -123,23 +133,23 @@
   }
 
   const upgrades = {
-    morePoints: { label: "+1 Poäng/klick", price: 100, count: 0 },
-    autoClicker: { label: "Autoclicker", price: 10000, bought: false },
-    superClick: { label: "Super Klick +50", price: 200000, bought: false },
-    tinyArea: { label: "Mindre Spelyta", price: 75000, bought: false },
-    multiClick: { label: "+2x Multiklick", price: 90000, bought: false },
-    goldenClick: { label: "Guld-klick (100 extra)", price: 120000, bought: false },
-    doublePoints: { label: "Dubbel baspoäng", price: 150000, bought: false },
-    fasterAuto: { label: "Snabbare Auto", price: 85000, bought: false },
-    prestigeBoost: { label: "+1 Prestige", price: 200000, bought: false },
-    autoBoost: { label: "+5 Poäng/sek", price: 95000, bought: false },
-    clickStorm: { label: "Klickstorm +200", price: 300000, bought: false },
+    morePoints: { label: "+1 Poäng/klick", price: 100, count: 0, infinite: true },
+    autoClicker: { label: "Autoclicker", price: 2500, count: 0, infinite: true },
+    superClick: { label: "Super Klick +50", price: 30000, count: 0, infinite: true },
+    tinyArea: { label: "Mindre Spelyta", price: 50000, count: 0 },
+    multiClick: { label: "+2x Multiklick", price: 100000, count: 0, infinite: true },
+    goldenClick: { label: "Guld-klick (100 extra)", price: 150000, count: 0, infinite: true },
+    doublePoints: { label: "Dubbel baspoäng", price: 175000, count: 0, infinite: true },
+    fasterAuto: { label: "Snabbare Auto", price: 200000, count: 0 },
+    prestigeBoost: { label: "+1 Prestige", price: 250000, count: 0, infinite: true },
+    autoBoost: { label: "+5 Poäng/sek", price: 275000, count: 0, infinite: true },
+    clickStorm: { label: "Klickstorm +200", price: 300000, count: 0, infinite: true }
   };
 
   function hitCircle() {
-    const bonus = (upgrades.superClick.bought ? 50 : 0) +
-                  (upgrades.goldenClick.bought ? 100 : 0) +
-                  (upgrades.clickStorm.bought ? 200 : 0);
+    const bonus = (upgrades.superClick.count || 0) * 50 +
+                  (upgrades.goldenClick.count || 0) * 100 +
+                  (upgrades.clickStorm.count || 0) * 200;
     const base = basePoints + (upgrades.morePoints.count || 0);
     const points = (base + bonus) * multiplier * prestige;
     score += points;
@@ -160,61 +170,47 @@
     if (!u || score < u.price) return;
     score -= u.price;
 
+    if (u.infinite) {
+      u.count++;
+    } else {
+      u.count = 1;
+    }
+
     switch (key) {
-      case "morePoints": u.count++; break;
+      case "morePoints": break;
       case "autoClicker":
-        if (!u.bought) {
-          u.bought = true;
+        if (u.count === 1) {
           autoClickerInterval = setInterval(() => {
-            const pts = 1 * multiplier * prestige;
-            score += pts;
-            ppsCounter += pts;
+            score += 1 * multiplier * prestige;
+            ppsCounter += 1 * multiplier * prestige;
             updateUI();
           }, autoClickerSpeed);
         }
         break;
-      case "superClick":
-      case "tinyArea":
-      case "multiClick":
-      case "goldenClick":
-      case "doublePoints":
+      case "superClick": break;
+      case "tinyArea": gameArea.style.height = "50%"; break;
+      case "multiClick": multiplier *= 2; break;
+      case "goldenClick": break;
+      case "doublePoints": basePoints *= 2; break;
       case "fasterAuto":
-      case "prestigeBoost":
+        clearInterval(autoClickerInterval);
+        autoClickerInterval = setInterval(() => {
+          score += 1 * multiplier * prestige;
+          ppsCounter += 1 * multiplier * prestige;
+          updateUI();
+        }, 500);
+        break;
+      case "prestigeBoost": prestige++; break;
       case "autoBoost":
-      case "clickStorm":
-        u.bought = true;
-        if (key === "doublePoints") basePoints *= 2;
-        if (key === "multiClick") multiplier *= 2;
-        if (key === "prestigeBoost") prestige++;
-        if (key === "autoBoost") {
-          autoClickerInterval = setInterval(() => {
-            const pts = 5 * multiplier * prestige;
-            score += pts;
-            ppsCounter += pts;
-            updateUI();
-          }, 1000);
-        }
-        if (key === "fasterAuto") {
-          clearInterval(autoClickerInterval);
-          autoClickerInterval = setInterval(() => {
-            const pts = 1 * multiplier * prestige;
-            score += pts;
-            ppsCounter += pts;
-            updateUI();
-          }, 500);
-        }
-        if (key === "tinyArea") {
-          gameArea.style.height = "50%";
-        }
+        setInterval(() => {
+          score += 5 * multiplier * prestige;
+          ppsCounter += 5 * multiplier * prestige;
+          updateUI();
+        }, 1000);
         break;
     }
-    updateUI();
-    disableButton(key);
-  }
 
-  function disableButton(key) {
-    const btn = document.getElementById("btn_" + key);
-    if (btn) btn.disabled = true;
+    updateUI();
   }
 
   function createUpgradeButtons() {
@@ -231,23 +227,17 @@
 
   function updateUI() {
     scoreDisplay.innerText = `Poäng: ${Math.floor(score).toLocaleString()}`;
-    const bonus = (upgrades.superClick.bought ? 50 : 0) +
-                  (upgrades.goldenClick.bought ? 100 : 0) +
-                  (upgrades.clickStorm.bought ? 200 : 0);
+    const bonus = (upgrades.superClick.count || 0) * 50 +
+                  (upgrades.goldenClick.count || 0) * 100 +
+                  (upgrades.clickStorm.count || 0) * 200;
     const base = basePoints + (upgrades.morePoints.count || 0);
     const pointsPerClick = (base + bonus) * multiplier * prestige;
     ppcDisplay.innerText = `Poäng/klick: ${pointsPerClick}`;
     ppsDisplay.innerText = `Poäng/sekund: ${ppsLast}`;
-    localStorage.setItem("clickerSave", JSON.stringify({ score, prestige, upgrades }));
   }
 
   function loadGame() {
-    const save = localStorage.getItem("clickerSave");
-    if (!save) return;
-    const data = JSON.parse(save);
-    score = data.score || 0;
-    prestige = data.prestige || 1;
-    Object.assign(upgrades, data.upgrades);
+    // Add optional localStorage logic here if needed
   }
 
   let ppsLast = 0;
@@ -257,8 +247,6 @@
     updateUI();
   }, 1000);
 
-  // Init
-  loadGame();
   createUpgradeButtons();
   updateUI();
   moveCircle();
@@ -266,3 +254,4 @@
 
 </body>
 </html>
+
